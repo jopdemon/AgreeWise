@@ -1,0 +1,45 @@
+<resources>
+    <string name="app_name">AgreeWise</string>
+    <string name="tagline">Understand before you Agree</string>
+    
+    <!-- Auth -->
+    <string name="welcome_back_auth">Welcome Back!</string>
+    <string name="sign_in_to_continue">Sign in to continue</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="login">Login</string>
+    <string name="or_continue_with">or continue with</string>
+    <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="dont_have_account">Don\'t have an account? Register</string>
+    
+    <!-- Home Dashboard -->
+    <string name="welcome_back">Welcome Back</string>
+    <string name="home_description">Protect yourself by identifying hidden risks in legal documents.</string>
+    <string name="paste_text">Paste Text</string>
+    <string name="paste_description">Analyze text from your clipboard</string>
+    <string name="upload_file">Upload File</string>
+    <string name="upload_description">Scan PDF or DOC files</string>
+    <string name="camera_scan">Camera Scan</string>
+    <string name="camera_description">Use AR to scan printed contracts</string>
+    <string name="recent_analysis">Recent Analyses</string>
+
+    <!-- Analysis -->
+    <string name="initializing_fetching_config">Initializing...</string>
+    <string name="ready_to_analyze">Ready to analyze</string>
+    <string name="error_api_key_missing">API Key missing</string>
+    <string name="error_fetch_remote_config">Failed to fetch config</string>
+    <string name="risk_score">Risk Score: %1$d (%2$s)</string>
+    <string name="risk_level_high">High</string>
+    <string name="risk_level_medium">Medium</string>
+    <string name="risk_level_low">Low</string>
+    <string name="flagged_keywords">Flagged: %s</string>
+    <string name="no_high_risk_clauses">No high-risk clauses detected.</string>
+    <string name="getting_ai_explanation">Getting AI Explanation...</string>
+    <string name="no_explanation_received">No explanation received.</string>
+    <string name="error_message">Error: %s</string>
+    <string name="network_error_message">Network Error: %s</string>
+    <string name="api_key_not_configured">API key not configured</string>
+    <string name="ai_analysis_no_api_key">AI analysis unavailable</string>
+    <string name="gemini_prompt">The following keywords were flagged in a legal clause: %1$s. Clause: %2$s. Please provide a clear explanation of the risks involved.</string>
+</resources>

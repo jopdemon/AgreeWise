@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- AgreeWise Brand Colors (from UI/UX) -->
+    <color name="brand_green">#76D7A4</color>
+    <color name="brand_green_dark">#5CB88A</color>
+    <color name="primary">#2C5E7A</color>
+    <color name="primary_variant">#1A3D51</color>
+    <color name="secondary">#76D7A4</color>
+    <color name="secondary_variant">#5CB88A</color>
+    
+    <!-- Status Colors -->
+    <color name="risk_high">#E53935</color>
+    <color name="risk_medium">#FB8C00</color>
+    <color name="risk_low">#43A047</color>
+    
+    <!-- Neutrals -->
+    <color name="background">#F8F9FA</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="text_primary">#333333</color>
+    <color name="text_secondary">#757575</color>
+    <color name="border_color">#E0E0E0</color>
+</resources>

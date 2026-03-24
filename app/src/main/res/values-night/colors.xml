@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FFFFFFFF</color>
+    <color name="white">#FF121212</color>
+
+    <!-- AgreeWise Brand Colors (Dark Mode) -->
+    <color name="brand_green">#76D7A4</color>
+    <color name="brand_green_dark">#5CB88A</color>
+    <color name="primary">#4A8FAD</color>
+    <color name="primary_variant">#2C5E7A</color>
+    <color name="secondary">#76D7A4</color>
+    <color name="secondary_variant">#5CB88A</color>
+
+    <!-- Status Colors -->
+    <color name="risk_high">#EF5350</color>
+    <color name="risk_medium">#FFA726</color>
+    <color name="risk_low">#66BB6A</color>
+
+    <!-- Neutrals (Dark Mode) -->
+    <color name="background">#121212</color>
+    <color name="surface">#1E1E1E</color>
+    <color name="text_primary">#E0E0E0</color>
+    <color name="text_secondary">#B0B0B0</color>
+    <color name="border_color">#424242</color>
+</resources>

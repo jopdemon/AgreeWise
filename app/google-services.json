@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "132740233767",
+    "firebase_url": "https://agreewiseapp-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "agreewiseapp",
+    "storage_bucket": "agreewiseapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:132740233767:android:6077a3eee44ad04251ec02",
+        "android_client_info": {
+          "package_name": "com.example.agreewise"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "132740233767-auv14f47j8ejfl15qhku7upbsm3i3113.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.agreewise",
+            "certificate_hash": "456bb8c5f7d5753d58d9fd2965ff991b7ac5e860"
+          }
+        },
+        {
+          "client_id": "132740233767-6e7loqu8pul815b192ipaifd23qnu7no.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbpIXWl8Kx-ocslYPbM3L1BZF--ohGSkw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "132740233767-6e7loqu8pul815b192ipaifd23qnu7no.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
