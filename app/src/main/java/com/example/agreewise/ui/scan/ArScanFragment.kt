@@ -1,5 +1,7 @@
 package com.example.agreewise.ui.scan
 
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
 import android.os.Bundle
 import android.view.GestureDetector
 import android.view.LayoutInflater
@@ -63,8 +65,11 @@ class ArScanFragment : Fragment() {
         }
 
         binding.btnBack.setOnClickListener {
-            findNavController().navigateUp()
+            requireActivity().onBackPressedDispatcher.onBackPressed()
         }
+        binding.btnBack.bringToFront()
+
+        startPulsingAnimation()
 
         arFragment.arSceneView.scene.addOnUpdateListener { frameTime ->
             val frame = arFragment.arSceneView.arFrame ?: return@addOnUpdateListener
@@ -119,6 +124,29 @@ class ArScanFragment : Fragment() {
         _binding = null
     }
     
+    private fun startPulsingAnimation() {
+        // Pulsing for the reticle
+        val reticleScaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 0.95f, 1.05f)
+        val reticleScaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.95f, 1.05f)
+        val reticleAlpha = PropertyValuesHolder.ofFloat(View.ALPHA, 0.5f, 0.9f)
+
+        ObjectAnimator.ofPropertyValuesHolder(binding.arReticle, reticleScaleX, reticleScaleY, reticleAlpha).apply {
+            duration = 1500
+            repeatCount = ObjectAnimator.INFINITE
+            repeatMode = ObjectAnimator.REVERSE
+            start()
+        }
+
+        // Subtler pulsing for the status card to draw attention
+        val cardAlpha = PropertyValuesHolder.ofFloat(View.ALPHA, 0.8f, 1.0f)
+        ObjectAnimator.ofPropertyValuesHolder(binding.arStatusCard, cardAlpha).apply {
+            duration = 2000
+            repeatCount = ObjectAnimator.INFINITE
+            repeatMode = ObjectAnimator.REVERSE
+            start()
+        }
+    }
+
     private fun stopArSession() {
         try {
             // Clear all augmented images and anchors
