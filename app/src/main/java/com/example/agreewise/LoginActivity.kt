@@ -28,14 +28,32 @@ class LoginActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         auth = FirebaseAuth.getInstance()
+        
+        animateViews()
 
         binding.btnLogin.setOnClickListener {
-            val email = binding.emailEditText.text.toString()
-            val password = binding.passwordEditText.text.toString()
+            val email = binding.emailEditText.text.toString().trim()
+            val password = binding.passwordEditText.text.toString().trim()
+            
+            binding.emailLayout.error = null
+            binding.passwordLayout.error = null
 
-            if (email.isNotEmpty() && password.isNotEmpty()) {
+            var isValid = true
+
+            if (email.isEmpty()) {
+                binding.emailLayout.error = "Email is required"
+                isValid = false
+            }
+            if (password.isEmpty()) {
+                binding.passwordLayout.error = "Password is required"
+                isValid = false
+            }
+
+            if (isValid) {
+                setLoadingState(true)
                 auth.signInWithEmailAndPassword(email, password)
                     .addOnCompleteListener(this) { task ->
+                        setLoadingState(false)
                         if (task.isSuccessful) {
                             startActivity(Intent(this, MainActivity::class.java))
                             finish()
@@ -43,8 +61,6 @@ class LoginActivity : AppCompatActivity() {
                             Toast.makeText(this, "Authentication Failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
-            } else {
-                Toast.makeText(this, "Please enter email and password", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -54,6 +70,44 @@ class LoginActivity : AppCompatActivity() {
 
         binding.textRegister.setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
+        }
+    }
+
+    private fun setLoadingState(isLoading: Boolean) {
+        binding.btnLogin.isEnabled = !isLoading
+        binding.btnGoogle.isEnabled = !isLoading
+        binding.textRegister.isEnabled = !isLoading
+        
+        if (isLoading) {
+            binding.btnLogin.text = "Signing in..."
+        } else {
+            binding.btnLogin.text = "Sign In"
+        }
+    }
+
+    private fun animateViews() {
+        val views = listOf(
+            binding.loginLogo,
+            binding.textSignInTitle,
+            binding.textHiThere,
+            binding.emailLayout,
+            binding.passwordLayout,
+            binding.btnLogin,
+            binding.textSocialHint,
+            binding.btnGoogle,
+            binding.textForgotPassword,
+            binding.textRegister
+        )
+
+        views.forEachIndexed { index, view ->
+            view.alpha = 0f
+            view.translationY = 50f
+            view.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setStartDelay((index * 50).toLong())
+                .setDuration(400)
+                .start()
         }
     }
 
@@ -77,7 +131,17 @@ class LoginActivity : AppCompatActivity() {
                 val account = task.getResult(Exception::class.java)!!
                 firebaseAuthWithGoogle(account.idToken!!)
             } catch (e: Exception) {
-                Toast.makeText(this, "Google sign in failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                val errorCode = (e as? com.google.android.gms.common.api.ApiException)?.statusCode
+                val errorMessage = when (errorCode) {
+                    7 -> "Network Error: Check Internet connection"
+                    10 -> "Developer Error: SHA-1 mismatch or Client ID issue (Code 10)"
+                    12500 -> "Configuration Error: Check google-services.json (Code 12500)"
+                    12501 -> "User Canceled sign-in"
+                    else -> e.message ?: "Unknown Error"
+                }
+                Log.e(TAG, "Google Sign-in failed: $errorMessage", e)
+                Toast.makeText(this, "Google Sign-in failed: $errorMessage", Toast.LENGTH_LONG).show()
+                setLoadingState(false)
             }
         }
     }

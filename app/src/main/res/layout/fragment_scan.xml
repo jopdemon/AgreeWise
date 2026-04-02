@@ -1,119 +1,114 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
-    android:padding="24dp">
+    android:background="@color/background">
 
-    <LinearLayout
-        android:id="@+id/btn_back"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_back_button"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="8dp"
+    <!-- Compact Gradient Header -->
+    <FrameLayout
+        android:id="@+id/header_bar"
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:background="@drawable/bg_header_gradient"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:src="@drawable/ic_back"
-            app:tint="@color/white" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingVertical="16dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="Back"
-            android:textColor="@color/white"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-    </LinearLayout>
+            <LinearLayout
+                android:id="@+id/btn_back"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingEnd="16dp">
 
-    <ImageView
-        android:id="@+id/home_logo"
-        android:layout_width="80dp"
-        android:layout_height="80dp"
-        android:src="@drawable/agreewise_transparentlogo"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_back"
+                    app:tint="@color/white" />
 
-    <TextView
-        android:id="@+id/text_tagline"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Protect Your Agreements"
-        android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-        android:textColor="@color/text_primary"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/home_logo" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="Back"
+                    android:textColor="@color/white"
+                    android:textSize="14sp" />
+            </LinearLayout>
 
-    <com.google.android.material.imageview.ShapeableImageView
-        android:id="@+id/user_profile"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
-        android:padding="2dp"
-        android:src="@android:drawable/ic_menu_myplaces"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:shapeAppearanceOverlay="@style/CircleImageView"
-        app:strokeColor="@color/brand_green"
-        app:strokeWidth="2dp" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Live Risk Scan"
+                android:textColor="@color/white"
+                android:textSize="22sp"
+                android:textStyle="bold" />
 
-    <TextView
-        android:id="@+id/text_user"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="User"
-        android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-        app:layout_constraintEnd_toEndOf="@id/user_profile"
-        app:layout_constraintStart_toStartOf="@id/user_profile"
-        app:layout_constraintTop_toBottomOf="@id/user_profile" />
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/user_profile"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:padding="2dp"
+                android:src="@android:drawable/ic_menu_myplaces"
+                app:shapeAppearanceOverlay="@style/CircleImageView"
+                app:strokeColor="@color/brand_green"
+                app:strokeWidth="2dp" />
+        </LinearLayout>
+    </FrameLayout>
 
-    <View
-        android:id="@+id/divider"
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="16dp"
-        android:background="@color/border_color"
-        app:layout_constraintTop_toBottomOf="@id/text_tagline" />
-
+    <!-- Section Title -->
     <TextView
         android:id="@+id/label_scan"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
         android:layout_marginTop="24dp"
-        android:text="Take a Photo"
-        android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+        android:text="Automatic Analysis"
+        android:textColor="@color/text_primary"
+        android:textSize="20sp"
         android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/divider" />
+        app:layout_constraintTop_toBottomOf="@id/header_bar" />
 
+    <TextView
+        android:id="@+id/label_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="4dp"
+        android:text="Analyzing text in real-time..."
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/label_scan" />
+
+    <!-- Camera Viewfinder Card -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/card_viewfinder"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="24dp"
-        android:layout_marginBottom="24dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="0dp"
-        app:strokeColor="@color/black"
-        app:strokeWidth="1dp"
-        app:layout_constraintBottom_toTopOf="@id/btn_shutter"
-        app:layout_constraintDimensionRatio="1:1"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="32dp"
+        app:cardBackgroundColor="@color/surface"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="6dp"
+        app:strokeColor="@color/primary"
+        app:strokeWidth="2dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/label_scan">
+        app:layout_constraintTop_toBottomOf="@id/label_subtitle">
 
         <FrameLayout
             android:layout_width="match_parent"
@@ -124,32 +119,27 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
 
-            <ImageView
-                android:layout_width="200dp"
-                android:layout_height="200dp"
-                android:layout_gravity="center"
-                android:src="@drawable/ic_viewfinder_target" />
+            <com.example.agreewise.ui.scan.OverlayView
+                android:id="@+id/overlay_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
 
+            <ImageView
+                android:layout_width="180dp"
+                android:layout_height="180dp"
+                android:layout_gravity="center"
+                android:alpha="0.3"
+                android:src="@drawable/ic_viewfinder_target" />
         </FrameLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <com.google.android.material.imageview.ShapeableImageView
+    <!-- Hidden shutter to keep code structure compatible -->
+    <View
         android:id="@+id/btn_shutter"
-        android:layout_width="80dp"
-        android:layout_height="80dp"
-        android:layout_marginBottom="32dp"
-        android:src="@android:color/white"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:shapeAppearanceOverlay="@style/CircleImageView"
-        app:strokeColor="@color/black"
-        app:strokeWidth="2dp"
-        app:contentPadding="10dp">
-        <ImageView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:src="@android:color/holo_red_dark" />
-    </com.google.android.material.imageview.ShapeableImageView>
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

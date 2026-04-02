@@ -1,5 +1,7 @@
 package com.example.agreewise.ui.history
 
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
@@ -8,7 +10,8 @@ import com.example.agreewise.databinding.ItemHistoryBinding
 import com.example.agreewise.model.HistoryItem
 
 class HistoryAdapter(
-    private val items: List<HistoryItem>,
+    private var items: List<HistoryItem>,
+    private val onDeleteClick: (HistoryItem) -> Unit,
     private val onItemClick: (HistoryItem) -> Unit
 ) : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
 
@@ -25,20 +28,39 @@ class HistoryAdapter(
         holder.binding.textDate.text = item.date
         holder.binding.textRiskLevel.text = item.riskLevel
 
-        val color = when (item.riskLevel.uppercase()) {
-            "HIGH RISK!" -> holder.itemView.context.getColor(R.color.risk_high)
-            "MEDIUM RISK!" -> holder.itemView.context.getColor(R.color.risk_medium)
+        val color = when {
+            item.riskLevel.contains("High", ignoreCase = true) -> holder.itemView.context.getColor(R.color.risk_high)
+            item.riskLevel.contains("Medium", ignoreCase = true) -> holder.itemView.context.getColor(R.color.risk_medium)
             else -> holder.itemView.context.getColor(R.color.risk_low)
         }
 
+        // Apply dynamic colors to text and icons
         holder.binding.textRiskLevel.setTextColor(color)
         holder.binding.iconRisk.setColorFilter(color)
         
-        // Set click listener
+        // Remove background color from textRiskLevel if it's blocking the icon
+        holder.binding.textRiskLevel.background = null
+        
+        // Dynamic Warning Icon
+        if (item.riskLevel.contains("Low", ignoreCase = true) || item.riskLevel.contains("Safe", ignoreCase = true)) {
+            holder.binding.iconRisk.setImageResource(R.drawable.ic_check_circle)
+        } else {
+            holder.binding.iconRisk.setImageResource(android.R.drawable.ic_dialog_alert)
+        }
+
         holder.itemView.setOnClickListener {
             onItemClick(item)
+        }
+        
+        holder.binding.btnDelete.setOnClickListener {
+            onDeleteClick(item)
         }
     }
 
     override fun getItemCount() = items.size
+
+    fun updateList(newList: List<HistoryItem>) {
+        items = newList
+        notifyDataSetChanged()
+    }
 }

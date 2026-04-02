@@ -41,5 +41,12 @@
     <string name="network_error_message">Network Error: %s</string>
     <string name="api_key_not_configured">API key not configured</string>
     <string name="ai_analysis_no_api_key">AI analysis unavailable</string>
-    <string name="gemini_prompt">The following keywords were flagged in a legal clause: %1$s. Clause: %2$s. Please provide a clear explanation of the risks involved.</string>
+    <string name="gemini_prompt">Analyze the following legal text. On the VERY FIRST LINE, provide a short, descriptive 3-5 word Title classifying this document (e.g. \"Software License Agreement\"). On the following lines, provide an explanation of the risks involved (Keywords flagged: %1$s). Text: %2$s</string>
+    
+    <!-- AR Scan -->
+    <string name="ar_risks_found">Analysis: %d risks found</string>
+    <string name="point_camera_at_contract">Point camera at the contract...</string>
+
+    <!-- Google Auth -->
+    <string name="default_web_client_id">132740233767-6e7loqu8pul815b192ipaifd23qnu7no.apps.googleusercontent.com</string>
 </resources>

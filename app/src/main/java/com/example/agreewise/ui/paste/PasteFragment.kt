@@ -6,9 +6,11 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import androidx.core.widget.addTextChangedListener
 import com.bumptech.glide.Glide
 import com.example.agreewise.R
 import com.example.agreewise.databinding.FragmentPasteBinding
+import com.example.agreewise.utils.SnackbarHelper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -45,16 +47,34 @@ class PasteFragment : Fragment() {
         }
 
         binding.buttonAnalyze.setOnClickListener {
-            val text = binding.editTextPaste.text.toString()
+            val text = binding.editTextPaste.text.toString().trim()
             if (text.isNotBlank()) {
-                val timestamp = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date())
-                val bundle = Bundle().apply {
-                    putString("contract_text", text)
-                    putString("title", "Pasted Text - $timestamp")
+                if (isValidLegalText(text)) {
+                    val timestamp = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date())
+                    val bundle = Bundle().apply {
+                        putString("contract_text", text)
+                        putString("title", "Pasted Text - $timestamp")
+                    }
+                    findNavController().navigate(R.id.action_paste_to_results, bundle)
+                } else {
+                    SnackbarHelper.showErrorMessage(binding.root, "Text does not appear to be a valid agreement. Please paste a proper contract.", binding.buttonAnalyze)
                 }
-                findNavController().navigate(R.id.action_paste_to_results, bundle)
+            } else {
+                SnackbarHelper.showErrorMessage(binding.root, "Please paste the contract text first.", binding.buttonAnalyze)
             }
         }
+    }
+
+    private fun isValidLegalText(text: String): Boolean {
+        if (text.length < 50) return false
+
+        val keywords = listOf(
+            "agreement", "contract", "terms", "conditions", "party", "hereby", 
+            "shall", "obligations", "liability", "policy", "privacy", "service",
+            "rights", "license", "warranty"
+        )
+        val lowerText = text.lowercase(Locale.getDefault())
+        return keywords.any { lowerText.contains(it) }
     }
 
     private fun loadUserProfile() {

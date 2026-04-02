@@ -6,7 +6,6 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -28,7 +27,6 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -37,6 +35,15 @@ class ResultsFragment : Fragment() {
 
     private var _binding: FragmentResultsBinding? = null
     private val binding get() = _binding!!
+
+    // API Key Rotation List
+    private val fallbackGeminiKeys = listOf(
+        "AIzaSyAhdQwTg7ol5b9VgEa-uvWZf0DkKVt4-90",
+        "AIzaSyDnr8dODs1cClygT8pdVRzoOvGeCJ-iWyc",
+        "AIzaSyC6ESyOeqvytKnwXF0zXtRZfxjbXA6sj3M",
+        "AIzaSyAPIjsCGtOS-j_EJs3xoJ4GzSns0wR9oD0",
+        "AIzaSyB9IdATTKO2j1eTgr4MD908ufk30uJgs94"
+    )
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -65,41 +72,22 @@ class ResultsFragment : Fragment() {
         val score = arguments?.getInt("score", 0) ?: 0
         val riskLevel = arguments?.getString("risk_level")
 
-        Log.d("ResultsFragment", "Text to analyze: '$textToAnalyze'")
-        Log.d("ResultsFragment", "Title: '$title'")
-        Log.d("ResultsFragment", "Explanation: '$explanation'")
-        Log.d("ResultsFragment", "Score: $score")
-        Log.d("ResultsFragment", "Risk Level: '$riskLevel'")
-
         if (textToAnalyze != null && textToAnalyze.isNotBlank()) {
-            if (explanation != null && score > 0) {
-                // This is from history, display the saved results
+            if (explanation != null) {
                 displaySavedResults(title, textToAnalyze, score, riskLevel ?: "Low Risk Detected", explanation)
             } else {
-                // This is a new analysis, analyze the text
                 analyzeContract(textToAnalyze, title)
             }
         } else {
-            // Show a more user-friendly message and navigate back
             binding.textExplanation.text = "No text to analyze. Please go back and try again."
-            binding.textRiskScore.text = "0"
-            binding.riskProgress.progress = 0
-            binding.textRiskStatus.text = "No Analysis"
-            binding.textFlaggedList.text = ""
-
-            // Auto-navigate back after a delay
             view?.postDelayed({
-                if (isAdded) {
-                    findNavController().navigateUp()
-                }
+                if (isAdded) findNavController().navigateUp()
             }, 2000)
         }
-
     }
 
     private fun analyzeContract(text: String, title: String) {
         val analysisResult = RiskScanner.scanText(text)
-
         binding.textRiskScore.text = analysisResult.score.toString()
         binding.riskProgress.progress = analysisResult.score
 
@@ -123,158 +111,112 @@ class ResultsFragment : Fragment() {
             analysisResult.flaggedKeywords.joinToString("\n") { "• ${it.replaceFirstChar { char -> char.uppercase() }}" }
         }
 
-        if (analysisResult.score > 20) {
-            callGeminiApi(text, title, analysisResult.score, binding.textRiskStatus.text.toString(), analysisResult.flaggedKeywords)
-        } else {
-            binding.textExplanation.text = getString(R.string.no_high_risk_clauses)
-            saveToFirebase(title, text, binding.textRiskStatus.text.toString(), analysisResult.score, getString(R.string.no_high_risk_clauses))
-        }
+        callGeminiApi(text, title, analysisResult.score, binding.textRiskStatus.text.toString(), analysisResult.flaggedKeywords)
     }
 
     private fun callGeminiApi(clause: String, title: String, score: Int, level: String, keywords: List<String>) {
         val remoteConfig = Firebase.remoteConfig
-        
-        // Use developer mode settings to fetch frequently during testing
-        val configSettings = remoteConfigSettings {
-            minimumFetchIntervalInSeconds = 0
-        }
+        val configSettings = remoteConfigSettings { minimumFetchIntervalInSeconds = 0 }
         remoteConfig.setConfigSettingsAsync(configSettings)
         
-        binding.textExplanation.text = "Fetching configuration..."
+        binding.textExplanation.text = "Initializing API Rotation..."
 
         remoteConfig.fetchAndActivate().addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                val geminiApiKey = remoteConfig.getString("gemini_api_key")
-                Log.d("RemoteConfig", "Key fetched: ${if (geminiApiKey.isNotBlank()) "YES" else "NO"}")
+            if (_binding == null) return@addOnCompleteListener
 
-                if (geminiApiKey.isBlank()) {
-                    binding.textExplanation.text = "API Key is empty in Remote Config. Check parameter name 'gemini_api_key'."
-                    return@addOnCompleteListener
-                }
+            val firebaseKey = if (task.isSuccessful) remoteConfig.getString("gemini_api_key") else ""
+            
+            val keysToTry = mutableListOf<String>()
+            if (firebaseKey.isNotBlank()) keysToTry.add(firebaseKey)
+            fallbackGeminiKeys.forEach { if (it != firebaseKey) keysToTry.add(it) }
+
+            viewLifecycleOwner.lifecycleScope.launch {
+                if (_binding == null) return@launch
 
                 binding.textExplanation.text = getString(R.string.getting_ai_explanation)
+                val prompt = getString(R.string.gemini_prompt, keywords.joinToString(), clause)
+                val request = GeminiRequest(contents = listOf(Content(parts = listOf(Part(prompt)))))
 
-                viewLifecycleOwner.lifecycleScope.launch {
-                    val prompt = getString(R.string.gemini_prompt, keywords.joinToString(), clause)
-                    val request = GeminiRequest(contents = listOf(Content(parts = listOf(Part(prompt)))))
+                var apiSuccess = false
+                var lastErrorMessage = ""
 
+                for ((index, key) in keysToTry.withIndex()) {
                     try {
-                        val response = RetrofitInstance.api.generateContent(geminiApiKey, request)
+                        Log.d("GeminiAPI", "Attempting request with key ${index + 1}/${keysToTry.size}")
+                        val response = RetrofitInstance.api.generateContent(key, request)
+                        
                         if (response.isSuccessful) {
-                            val explanation = response.body()?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-                            val finalExp = explanation ?: getString(R.string.no_explanation_received)
-                            binding.textExplanation.text = finalExp
-                            saveToFirebase(title, clause, level, score, finalExp)
+                            val fullResponse = response.body()?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: ""
+                            if (_binding != null) {
+                                handleSuccessfulResponse(fullResponse, clause, title, score, level)
+                                apiSuccess = true
+                            }
+                            break
                         } else {
-                            val errorMsg = "AI API Error: ${response.code()} ${response.message()}"
-                            binding.textExplanation.text = errorMsg
-                            Log.e("GeminiAPI", "Error: ${response.errorBody()?.string()}")
-                            saveToFirebase(title, clause, level, score, errorMsg)
+                            val errorCode = response.code()
+                            lastErrorMessage = "Error $errorCode: ${response.message()}"
+                            Log.e("GeminiAPI", "Key ${index + 1} failed: $lastErrorMessage")
+                            if (errorCode == 429 || errorCode == 401 || errorCode == 403) {
+                                continue
+                            } else {
+                                continue
+                            }
                         }
                     } catch (e: Exception) {
-                        val errorMsg = getString(R.string.network_error_message, e.message)
-                        binding.textExplanation.text = errorMsg
-                        Log.e("GeminiAPI", "Network Exception", e)
-                        saveToFirebase(title, clause, level, score, errorMsg)
+                        lastErrorMessage = e.message ?: "Unknown network error"
+                        Log.e("GeminiAPI", "Exception with key ${index + 1}: $lastErrorMessage")
+                        continue
                     }
                 }
-            } else {
-                val errorMsg = "Failed to fetch Remote Config: ${task.exception?.message}"
-                binding.textExplanation.text = errorMsg
-                Log.e("RemoteConfig", "Fetch failed", task.exception)
-                saveToFirebase(title, clause, level, score, errorMsg)
+
+                if (!apiSuccess && _binding != null) {
+                    val finalError = "All API keys failed. Last error: $lastErrorMessage"
+                    binding.textExplanation.text = finalError
+                    saveToFirebase(title, clause, level, score, finalError)
+                }
             }
         }
     }
 
+    private fun handleSuccessfulResponse(fullResponse: String, clause: String, title: String, score: Int, level: String) {
+        val lines = fullResponse.lines()
+        val generatedTitle = if (lines.isNotEmpty() && lines.first().isNotBlank()) {
+            lines.first().replace("**", "").replace("#", "").trim()
+        } else title
+        
+        val rawExplanation = if (lines.size > 1) {
+            lines.drop(1).joinToString("\n").trim()
+        } else {
+            fullResponse
+        }
+
+        val finalExp = if (rawExplanation.isNotBlank()) rawExplanation else getString(R.string.no_explanation_received)
+        
+        binding.textExplanation.text = finalExp
+        binding.textTopTitle.text = generatedTitle
+        
+        saveToFirebase(generatedTitle, clause, level, score, finalExp)
+    }
+
     private fun saveToFirebase(title: String, content: String, level: String, score: Int, explanation: String) {
-        val userId = FirebaseAuth.getInstance().currentUser?.uid
-        if (userId == null) {
-            Log.e("ResultsFragment", "Cannot save history: User not authenticated")
-            return
-        }
-        
-        Log.d("ResultsFragment", "Saving history for user: $userId")
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val database = FirebaseDatabase.getInstance().getReference("history").child(userId)
-        
         val date = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(Date())
-        val itemId = database.push().key
-        if (itemId == null) {
-            Log.e("ResultsFragment", "Failed to generate item ID")
-            return
-        }
+        val itemId = database.push().key ?: return
         
         val item = HistoryItem(itemId, title, date, score, level, content, explanation)
-        Log.d("ResultsFragment", "Saving item: $title, Score: $score, Level: $level")
-        
         database.child(itemId).setValue(item)
-            .addOnSuccessListener {
-                Log.d("ResultsFragment", "History saved successfully: $itemId")
-            }
-            .addOnFailureListener { e ->
-                Log.e("ResultsFragment", "Failed to save history: ${e.message}", e)
-            }
     }
 
     private fun loadUserProfile() {
         val user = FirebaseAuth.getInstance().currentUser ?: return
-        
-        // Try Firebase Auth photo URL first
         user.photoUrl?.let { photoUri ->
-            if (isAdded) {
-                Glide.with(requireContext())
-                    .load(photoUri)
-                    .circleCrop()
-                    .placeholder(R.drawable.agreewise_transparentlogo)
-                    .error(R.drawable.agreewise_transparentlogo)
-                    .into(binding.userProfile)
-            }
-        } ?: run {
-            // Fallback to database
-            val userId = user.uid
-            val database = FirebaseDatabase.getInstance().getReference("users").child(userId)
-            
-            database.addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val photoUrl = snapshot.child("photoUrl").getValue(String::class.java)
-                    if (!photoUrl.isNullOrEmpty() && isAdded) {
-                        Glide.with(requireContext())
-                            .load(photoUrl)
-                            .circleCrop()
-                            .placeholder(R.drawable.agreewise_transparentlogo)
-                            .error(R.drawable.agreewise_transparentlogo)
-                            .into(binding.userProfile)
-                    }
-                }
-
-                override fun onCancelled(error: DatabaseError) {}
-            })
-        }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        stopAnalysis()
-        arguments?.clear()
-        _binding = null
-    }
-    
-    private fun stopAnalysis() {
-        // Cancel any ongoing analysis or API calls
-        // Clear the analysis state
-        try {
-            // Reset UI to default state
-            binding.textRiskScore.text = "0"
-            binding.riskProgress.progress = 0
-            binding.textRiskStatus.text = "No Analysis"
-            binding.textFlaggedList.text = ""
-            binding.textExplanation.text = ""
-        } catch (e: Exception) {
-            // Ignore cleanup errors
+            if (isAdded) Glide.with(requireContext()).load(photoUri).circleCrop().into(binding.userProfile)
         }
     }
 
     private fun displaySavedResults(title: String, content: String, score: Int, riskLevel: String, explanation: String) {
+        binding.textTopTitle.text = title
         binding.textRiskScore.text = score.toString()
         binding.riskProgress.progress = score
         binding.textRiskStatus.text = riskLevel
@@ -290,12 +232,12 @@ class ResultsFragment : Fragment() {
         binding.textRiskScore.setTextColor(color)
         binding.riskProgress.progressTintList = ColorStateList.valueOf(color)
 
-        // Get flagged keywords from the content
         val analysisResult = RiskScanner.scanText(content)
-        binding.textFlaggedList.text = if (analysisResult.flaggedKeywords.isEmpty()) {
-            "No specific risky keywords found."
-        } else {
-            analysisResult.flaggedKeywords.joinToString("\n") { "• ${it.replaceFirstChar { char -> char.uppercase() }}" }
-        }
+        binding.textFlaggedList.text = analysisResult.flaggedKeywords.joinToString("\n") { "• ${it.replaceFirstChar { c -> c.uppercase() }}" }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

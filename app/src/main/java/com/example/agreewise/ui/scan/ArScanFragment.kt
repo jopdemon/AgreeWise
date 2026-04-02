@@ -1,8 +1,7 @@
 package com.example.agreewise.ui.scan
 
-import android.animation.ObjectAnimator
-import android.animation.PropertyValuesHolder
 import android.os.Bundle
+import android.util.Log
 import android.view.GestureDetector
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -13,13 +12,16 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.example.agreewise.R
 import com.example.agreewise.databinding.FragmentArScanBinding
-import com.google.ar.core.AugmentedImage
+import com.example.agreewise.ml.RiskScanner
 import com.google.ar.core.Config
-import com.google.ar.core.Session
-import com.google.ar.core.TrackingState
+import com.google.ar.core.Frame
 import com.google.ar.sceneform.AnchorNode
 import com.google.ar.sceneform.rendering.ViewRenderable
 import com.google.ar.sceneform.ux.ArFragment
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.util.concurrent.atomic.AtomicBoolean
 
 class ArScanFragment : Fragment() {
 
@@ -27,11 +29,15 @@ class ArScanFragment : Fragment() {
     private val binding get() = _binding!!
     
     private lateinit var arFragment: ArFragment
-    private val augmentedImageMap = HashMap<AugmentedImage, AnchorNode>()
+    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    private val isProcessing = AtomicBoolean(false)
+    private var lastAnalysisTime = 0L
+    private var detectionStartTime = 0L
+    private val analysisInterval = 5000L 
+    private val autoNavigateDelay = 8000L // Increased so user can see the floating labels longer
+    private var isNavigating = false
     
-    companion object {
-        private const val TAG = "ArScanFragment"
-    }
+    private val anchorNodeMap = mutableMapOf<Int, AnchorNode>()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -52,10 +58,9 @@ class ArScanFragment : Fragment() {
             }
         }
 
-        // --- ADDED: TAP TO FOCUS ---
         val gestureDetector = GestureDetector(requireContext(), object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapUp(e: MotionEvent): Boolean {
-                configureArSession() // Trigger a re-configuration/re-focus
+                configureArSession()
                 return true
             }
         })
@@ -65,28 +70,20 @@ class ArScanFragment : Fragment() {
         }
 
         binding.btnBack.setOnClickListener {
-            requireActivity().onBackPressedDispatcher.onBackPressed()
+            findNavController().navigateUp()
         }
-        binding.btnBack.bringToFront()
 
-        startPulsingAnimation()
-
-        arFragment.arSceneView.scene.addOnUpdateListener { frameTime ->
+        arFragment.arSceneView.scene.addOnUpdateListener { _ ->
+            if (isNavigating) return@addOnUpdateListener
+            
             val frame = arFragment.arSceneView.arFrame ?: return@addOnUpdateListener
-            val updatedAugmentedImages = frame.getUpdatedTrackables(AugmentedImage::class.java)
-
-            for (augmentedImage in updatedAugmentedImages) {
-                when (augmentedImage.trackingState) {
-                    TrackingState.TRACKING -> {
-                        if (!augmentedImageMap.containsKey(augmentedImage)) {
-                            addArOverlay(augmentedImage)
-                        }
-                    }
-                    TrackingState.STOPPED -> {
-                        augmentedImageMap.remove(augmentedImage)
-                    }
-                    else -> {}
-                }
+            
+            if (System.currentTimeMillis() - lastAnalysisTime > analysisInterval) {
+                processFrame(frame)
+            }
+            
+            if (detectionStartTime != 0L && System.currentTimeMillis() - detectionStartTime > autoNavigateDelay) {
+                navigateToResults()
             }
         }
     }
@@ -95,74 +92,92 @@ class ArScanFragment : Fragment() {
         val session = arFragment.arSceneView.session ?: return
         val config = session.config
         config.focusMode = Config.FocusMode.AUTO
+        config.updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
         session.configure(config)
     }
 
-    private fun addArOverlay(augmentedImage: AugmentedImage) {
-        val anchor = augmentedImage.createAnchor(augmentedImage.centerPose)
-        val anchorNode = AnchorNode(anchor)
-        anchorNode.setParent(arFragment.arSceneView.scene)
-        augmentedImageMap[augmentedImage] = anchorNode
+    private fun processFrame(frame: Frame) {
+        if (isProcessing.get() || isNavigating) return
+
+        try {
+            val image = frame.acquireCameraImage()
+            val inputImage = InputImage.fromMediaImage(image, 0)
+            
+            isProcessing.set(true)
+            recognizer.process(inputImage)
+                .addOnSuccessListener { visionText ->
+                    val text = visionText.text
+                    if (text.isNotBlank() && text.length > 50) {
+                        if (detectionStartTime == 0L) detectionStartTime = System.currentTimeMillis()
+                        analyzeRisk(text)
+                        lastAnalysisTime = System.currentTimeMillis()
+                    }
+                }
+                .addOnCompleteListener {
+                    image.close()
+                    isProcessing.set(false)
+                }
+        } catch (e: Exception) {
+            Log.e("ArScanFragment", "Error acquiring camera image", e)
+        }
+    }
+
+    private fun analyzeRisk(text: String) {
+        val result = RiskScanner.scanText(text)
+        
+        activity?.runOnUiThread {
+            if (_binding != null) {
+                binding.arStatusText.text = getString(R.string.ar_risks_found, result.flaggedKeywords.size)
+                updateArOverlays(result.flaggedKeywords, result.score)
+            }
+        }
+    }
+
+    private fun updateArOverlays(risks: List<String>, score: Int) {
+        val scene = arFragment.arSceneView.scene
+        anchorNodeMap.values.forEach { it.setParent(null) }
+        anchorNodeMap.clear()
+        
+        // Logic for Green/Yellow/Red based on risk score
+        val layoutId = when {
+            score > 60 -> R.layout.ar_label_high // RED
+            score > 30 -> R.layout.ar_label_medium // YELLOW
+            else -> R.layout.ar_label_low // GREEN
+        }
+
+        val labelText = if (risks.isNotEmpty()) risks[0] else "Standard Clause"
 
         ViewRenderable.builder()
-            .setView(requireContext(), R.layout.ar_contract_label)
+            .setView(requireContext(), layoutId)
             .build()
             .thenAccept { renderable ->
                 val node = com.google.ar.sceneform.Node()
                 node.renderable = renderable
+                
+                // Position directly in front of camera
+                node.localPosition = com.google.ar.sceneform.math.Vector3(0f, 0f, -0.5f)
+                
+                val anchorNode = AnchorNode()
+                anchorNode.setParent(scene)
                 node.setParent(anchorNode)
                 
                 val view = renderable.view
-                view.findViewById<TextView>(R.id.ar_text).text = "Analyzing Contract..."
-                view.findViewById<TextView>(R.id.ar_risk_status).text = "Scanning Clauses..."
+                view.findViewById<TextView>(R.id.risk_description).text = labelText
+                
+                anchorNodeMap[0] = anchorNode
             }
+    }
+
+    private fun navigateToResults() {
+        if (isAdded && !isNavigating) {
+            isNavigating = true
+            findNavController().navigate(R.id.action_ar_scan_to_results)
+        }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        stopArSession()
+        recognizer.close()
         _binding = null
-    }
-    
-    private fun startPulsingAnimation() {
-        // Pulsing for the reticle
-        val reticleScaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 0.95f, 1.05f)
-        val reticleScaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.95f, 1.05f)
-        val reticleAlpha = PropertyValuesHolder.ofFloat(View.ALPHA, 0.5f, 0.9f)
-
-        ObjectAnimator.ofPropertyValuesHolder(binding.arReticle, reticleScaleX, reticleScaleY, reticleAlpha).apply {
-            duration = 1500
-            repeatCount = ObjectAnimator.INFINITE
-            repeatMode = ObjectAnimator.REVERSE
-            start()
-        }
-
-        // Subtler pulsing for the status card to draw attention
-        val cardAlpha = PropertyValuesHolder.ofFloat(View.ALPHA, 0.8f, 1.0f)
-        ObjectAnimator.ofPropertyValuesHolder(binding.arStatusCard, cardAlpha).apply {
-            duration = 2000
-            repeatCount = ObjectAnimator.INFINITE
-            repeatMode = ObjectAnimator.REVERSE
-            start()
-        }
-    }
-
-    private fun stopArSession() {
-        try {
-            // Clear all augmented images and anchors
-            augmentedImageMap.values.forEach { anchorNode ->
-                anchorNode.setParent(null)
-            }
-            augmentedImageMap.clear()
-            
-            // Stop the AR session
-            arFragment.arSceneView.session?.let { session ->
-                session.close()
-            }
-            
-            // Scene cleanup is handled by clearing parent nodes above
-        } catch (e: Exception) {
-            // Ignore cleanup errors
-        }
     }
 }

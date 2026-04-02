@@ -5,25 +5,36 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="12dp"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="0dp"
-    app:strokeColor="@color/border_color"
-    app:strokeWidth="1dp">
+    app:cardBackgroundColor="@color/surface"
+    app:cardCornerRadius="20dp"
+    app:cardElevation="4dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="12dp">
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="14dp">
 
-        <ImageView
-            android:id="@+id/icon_doc"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@drawable/ic_upload"
+        <!-- Doc Icon with circle bg -->
+        <FrameLayout
+            android:id="@+id/icon_container"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_icon_circle"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:tint="@color/black" />
+            app:layout_constraintTop_toTopOf="parent">
 
+            <ImageView
+                android:id="@+id/icon_doc"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_upload"
+                app:tint="@color/primary" />
+        </FrameLayout>
+
+        <!-- Title -->
         <TextView
             android:id="@+id/text_title"
             android:layout_width="0dp"
@@ -33,12 +44,14 @@
             android:ellipsize="end"
             android:maxLines="2"
             android:text="Netflix Terms of Service"
-            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
             android:textStyle="bold"
-            app:layout_constraintEnd_toStartOf="@id/icon_risk"
-            app:layout_constraintStart_toEndOf="@id/icon_doc"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintEnd_toStartOf="@id/text_risk_level"
+            app:layout_constraintStart_toEndOf="@id/icon_container"
+            app:layout_constraintTop_toTopOf="@id/icon_container" />
 
+        <!-- Date Chip -->
         <TextView
             android:id="@+id/text_date"
             android:layout_width="wrap_content"
@@ -48,32 +61,53 @@
             android:paddingHorizontal="8dp"
             android:paddingVertical="2dp"
             android:text="March 8, 2026"
-            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
             android:textColor="@color/text_secondary"
+            android:textSize="11sp"
             app:layout_constraintStart_toStartOf="@id/text_title"
             app:layout_constraintTop_toBottomOf="@id/text_title" />
 
+        <!-- Delete Button (top-right) -->
         <ImageView
-            android:id="@+id/icon_risk"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginTop="4dp"
-            android:src="@android:drawable/ic_dialog_alert"
+            android:id="@+id/btn_delete"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:padding="6dp"
+            android:src="@android:drawable/ic_menu_delete"
+            app:tint="@color/text_secondary"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/text_title"
-            app:tint="@color/risk_high" />
+            app:layout_constraintTop_toTopOf="parent" />
 
+        <!-- Risk Badge (left of delete button) -->
         <TextView
             android:id="@+id/text_risk_level"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="High Risk!"
-            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_risk_badge"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="4dp"
+            android:text="High Risk"
             android:textColor="@color/risk_high"
+            android:textSize="11sp"
             android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/icon_risk" />
+            app:layout_constraintEnd_toStartOf="@id/btn_delete"
+            app:layout_constraintTop_toTopOf="@id/btn_delete"
+            app:layout_constraintBottom_toBottomOf="@id/btn_delete" />
+
+        <!-- Risk Icon (below badge) -->
+        <ImageView
+            android:id="@+id/icon_risk"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginTop="4dp"
+            android:src="@android:drawable/ic_dialog_alert"
+            app:layout_constraintEnd_toEndOf="@id/text_risk_level"
+            app:layout_constraintStart_toStartOf="@id/text_risk_level"
+            app:layout_constraintTop_toBottomOf="@id/text_risk_level"
+            app:tint="@color/risk_high" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>

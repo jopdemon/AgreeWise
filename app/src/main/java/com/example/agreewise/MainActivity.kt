@@ -26,11 +26,18 @@ class MainActivity : AppCompatActivity() {
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
         
-        // Add listener to stop scanning sessions when navigating to main tabs
+        // Add listener to stop scanning sessions and manage Navbar visibility
         navController.addOnDestinationChangedListener { _, destination, _ ->
             when (destination.id) {
-                R.id.navigation_home, R.id.navigation_history, R.id.navigation_settings -> {
+                R.id.navigation_home, R.id.navigation_history, R.id.navigation_settings, R.id.navigation_results -> {
                     stopAllScanningSessions()
+                    binding.bottomNav.visibility = android.view.View.VISIBLE
+                }
+                R.id.navigation_scan, R.id.navigation_upload, R.id.navigation_ar_scan, R.id.navigation_paste -> {
+                    binding.bottomNav.visibility = android.view.View.GONE
+                }
+                else -> {
+                    binding.bottomNav.visibility = android.view.View.VISIBLE
                 }
             }
         }

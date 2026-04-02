@@ -1,15 +1,19 @@
 package com.example.agreewise.ui.home
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.example.agreewise.R
 import com.example.agreewise.databinding.FragmentHomeBinding
+import com.google.ar.core.ArCoreApk
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -47,9 +51,8 @@ class HomeFragment : Fragment() {
             findNavController().navigate(R.id.navigation_history)
         }
 
-        // Updated to navigate to AR Scan instead of standard Scan
         binding.cardScan.setOnClickListener {
-            findNavController().navigate(R.id.action_home_to_ar_scan)
+            checkArAvailability()
         }
 
         binding.userProfile.setOnClickListener {
@@ -57,15 +60,29 @@ class HomeFragment : Fragment() {
         }
     }
 
+    private fun checkArAvailability() {
+        val availability = ArCoreApk.getInstance().checkAvailability(requireContext())
+        if (availability.isTransient) {
+            // Re-query after 200ms
+            Handler(Looper.getMainLooper()).postDelayed({
+                checkArAvailability()
+            }, 200)
+            return
+        }
+
+        if (availability.isSupported) {
+            findNavController().navigate(R.id.action_home_to_ar_scan)
+        } else {
+            // Unsupported or needs install - Fallback to standard scanner
+            Log.d(TAG, "AR not supported: $availability. Falling back to standard scanner.")
+            findNavController().navigate(R.id.action_home_to_scan)
+        }
+    }
+
     private fun loadUserProfile() {
         val user = FirebaseAuth.getInstance().currentUser ?: return
         
-        Log.d(TAG, "Loading profile for user: ${user.displayName}")
-        Log.d(TAG, "Photo URL: ${user.photoUrl}")
-        
-        // Try Firebase Auth photo URL first
         user.photoUrl?.let { photoUrl ->
-            Log.d(TAG, "Loading profile picture from Firebase Auth")
             if (isAdded) {
                 Glide.with(requireContext())
                     .load(photoUrl)
@@ -75,8 +92,6 @@ class HomeFragment : Fragment() {
                     .into(binding.userProfile)
             }
         } ?: run {
-            // Fallback to database
-            Log.d(TAG, "No photo URL in Firebase Auth, checking database")
             val userId = user.uid
             val database = FirebaseDatabase.getInstance().getReference("users").child(userId)
             
@@ -84,7 +99,6 @@ class HomeFragment : Fragment() {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val photoUrl = snapshot.child("photoUrl").getValue(String::class.java)
                     if (!photoUrl.isNullOrEmpty() && isAdded) {
-                        Log.d(TAG, "Loading profile picture from database: $photoUrl")
                         Glide.with(requireContext())
                             .load(photoUrl)
                             .circleCrop()
@@ -92,7 +106,6 @@ class HomeFragment : Fragment() {
                             .error(R.drawable.agreewise_transparentlogo)
                             .into(binding.userProfile)
                     } else {
-                        Log.w(TAG, "No photo URL found, using placeholder")
                         if (isAdded) {
                             binding.userProfile.setImageResource(R.drawable.agreewise_transparentlogo)
                         }
@@ -100,7 +113,6 @@ class HomeFragment : Fragment() {
                 }
 
                 override fun onCancelled(error: DatabaseError) {
-                    Log.e(TAG, "Error loading profile from database: ${error.message}", error.toException())
                     if (isAdded) {
                         binding.userProfile.setImageResource(R.drawable.agreewise_transparentlogo)
                     }

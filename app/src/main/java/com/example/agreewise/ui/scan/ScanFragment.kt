@@ -2,7 +2,6 @@ package com.example.agreewise.ui.scan
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -10,42 +9,46 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.OptIn
+import androidx.camera.core.*
+import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.example.agreewise.R
 import com.example.agreewise.databinding.FragmentScanBinding
+import com.example.agreewise.ml.RiskScanner
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
-import androidx.activity.result.IntentSenderRequest
-import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
-import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class ScanFragment : Fragment() {
 
     private var _binding: FragmentScanBinding? = null
     private val binding get() = _binding!!
     
-    private var isScanningActive = false
+    private lateinit var cameraExecutor: ExecutorService
+    private var currentExtractedText = ""
+    private var detectionStartTime = 0L
+    private val autoNavigateDelay = 5000L // 5 seconds of stable detection to allow user to see highlights
+    private var isNavigating = false
+    
+    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-    private val scannerLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            val scanResult = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
-            scanResult?.pages?.get(0)?.imageUri?.let { uri ->
-                processScannedImage(uri)
-            }
-        }
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) startCamera() else findNavController().navigateUp()
     }
 
     override fun onCreateView(
@@ -58,118 +61,109 @@ class ScanFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
+        cameraExecutor = Executors.newSingleThreadExecutor()
         loadUserProfile()
 
-        binding.btnBack.setOnClickListener {
-            findNavController().navigateUp()
-        }
+        if (allPermissionsGranted()) startCamera() else requestPermissionLauncher.launch(Manifest.permission.CAMERA)
 
-        binding.userProfile.setOnClickListener {
-            findNavController().navigate(R.id.navigation_settings)
-        }
-
-        binding.btnShutter.setOnClickListener {
-            startScanning()
-        }
-        
-        // Auto-start scanner for better UX
-        startScanning()
+        binding.btnBack.setOnClickListener { findNavController().navigateUp() }
     }
 
-    private fun startScanning() {
-        isScanningActive = true
-        val options = GmsDocumentScannerOptions.Builder()
-            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
-            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
-            .setGalleryImportAllowed(true)
-            .build()
+    private fun allPermissionsGranted() = ContextCompat.checkSelfPermission(
+        requireContext(), Manifest.permission.CAMERA
+    ) == PackageManager.PERMISSION_GRANTED
 
-        GmsDocumentScanning.getClient(options)
-            .getStartScanIntent(requireActivity())
-            .addOnSuccessListener { intentSender ->
-                scannerLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+    private fun startCamera() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        cameraProviderFuture.addListener({
+            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+            val preview = Preview.Builder().build().also {
+                it.setSurfaceProvider(binding.previewView.surfaceProvider)
             }
-            .addOnFailureListener { e ->
-                isScanningActive = false
-                Toast.makeText(requireContext(), "Failed to start scanner: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-    }
 
-    private fun processScannedImage(uri: Uri) {
-        val image = InputImage.fromFilePath(requireContext(), uri)
-        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-
-        recognizer.process(image)
-            .addOnSuccessListener { visionText ->
-                val extractedText = visionText.text
-                if (extractedText.isNotBlank()) {
-                    val title = extractTitleFromText(extractedText)
-                    val bundle = Bundle().apply {
-                        putString("contract_text", extractedText)
-                        putString("title", title)
+            val imageAnalyzer = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .also {
+                    it.setAnalyzer(cameraExecutor) { imageProxy ->
+                        processImageProxy(imageProxy)
                     }
-                    findNavController().navigate(R.id.action_scan_to_results, bundle)
-                } else {
-                    Toast.makeText(requireContext(), "No text detected. Try again.", Toast.LENGTH_LONG).show()
                 }
+
+            try {
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(viewLifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageAnalyzer)
+            } catch (exc: Exception) {
+                Log.e("ScanFragment", "Binding failed", exc)
             }
-            .addOnFailureListener { e ->
-                Toast.makeText(requireContext(), "OCR Error: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
+        }, ContextCompat.getMainExecutor(requireContext()))
     }
-    
-    private fun extractTitleFromText(text: String): String {
-        val lines = text.lines().filter { it.trim().isNotEmpty() }
-        if (lines.isEmpty()) {
-            val timestamp = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date())
-            return "Scanned Document - $timestamp"
+
+    @OptIn(ExperimentalGetImage::class)
+    private fun processImageProxy(imageProxy: ImageProxy) {
+        if (isNavigating) {
+            imageProxy.close()
+            return
         }
-        
-        val firstLine = lines[0].trim()
-        val title = when {
-            firstLine.length > 50 -> firstLine.take(47) + "..."
-            firstLine.length < 5 && lines.size > 1 -> lines[1].trim().take(50)
-            else -> firstLine
+
+        val mediaImage = imageProxy.image
+        if (mediaImage != null) {
+            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+            recognizer.process(image)
+                .addOnSuccessListener { visionText ->
+                    if (visionText.text.isNotBlank() && visionText.text.length > 50) {
+                        currentExtractedText = visionText.text
+                        if (detectionStartTime == 0L) detectionStartTime = System.currentTimeMillis()
+                        
+                        activity?.runOnUiThread {
+                            binding.overlayView.updateOverlay(visionText.textBlocks)
+                        }
+                        
+                        if (System.currentTimeMillis() - detectionStartTime > autoNavigateDelay) {
+                            captureAndNavigate()
+                        }
+                    } else {
+                        detectionStartTime = 0L
+                        activity?.runOnUiThread { binding.overlayView.updateOverlay(emptyList()) }
+                    }
+                }
+                .addOnCompleteListener { imageProxy.close() }
+        } else {
+            imageProxy.close()
         }
-        
-        return title.ifEmpty {
-            val timestamp = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date())
-            "Scanned Document - $timestamp"
+    }
+
+    private fun captureAndNavigate() {
+        if (!isNavigating && currentExtractedText.isNotBlank()) {
+            isNavigating = true
+            activity?.runOnUiThread {
+                val bundle = Bundle().apply {
+                    putString("contract_text", currentExtractedText)
+                    putString("title", currentExtractedText.lines().firstOrNull()?.take(50) ?: "Auto Scan")
+                }
+                findNavController().navigate(R.id.action_scan_to_results, bundle)
+            }
         }
     }
 
     private fun loadUserProfile() {
         val user = FirebaseAuth.getInstance().currentUser ?: return
-        val userId = user.uid
-        val database = FirebaseDatabase.getInstance().getReference("users").child(userId)
-        
+        val database = FirebaseDatabase.getInstance().getReference("users").child(user.uid)
         database.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val photoUrl = snapshot.child("photoUrl").getValue(String::class.java)
                 if (!photoUrl.isNullOrEmpty() && isAdded) {
-                    Glide.with(requireContext())
-                        .load(photoUrl)
-                        .circleCrop()
-                        .placeholder(R.drawable.agreewise_transparentlogo)
-                        .error(R.drawable.agreewise_transparentlogo)
-                        .into(binding.userProfile)
+                    Glide.with(requireContext()).load(photoUrl).circleCrop().into(binding.userProfile)
                 }
             }
-
             override fun onCancelled(error: DatabaseError) {}
         })
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        stopScanning()
+        cameraExecutor.shutdown()
+        recognizer.close()
         _binding = null
-    }
-    
-    private fun stopScanning() {
-        isScanningActive = false
-        // Google Document Scanner handles its own cleanup
-        // This flag helps track scanning state for debugging
     }
 }
