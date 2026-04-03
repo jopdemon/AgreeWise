@@ -1,7 +1,11 @@
 package com.example.agreewise.ui.results
 
 import android.content.res.ColorStateList
+import android.graphics.Typeface
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.StyleSpan
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -19,10 +23,7 @@ import com.example.agreewise.network.GeminiRequest
 import com.example.agreewise.network.Part
 import com.example.agreewise.network.RetrofitInstance
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
@@ -30,6 +31,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.regex.Pattern
 
 class ResultsFragment : Fragment() {
 
@@ -192,10 +194,23 @@ class ResultsFragment : Fragment() {
 
         val finalExp = if (rawExplanation.isNotBlank()) rawExplanation else getString(R.string.no_explanation_received)
         
-        binding.textExplanation.text = finalExp
+        binding.textExplanation.text = formatMarkdown(finalExp)
         binding.textTopTitle.text = generatedTitle
         
         saveToFirebase(generatedTitle, clause, level, score, finalExp)
+    }
+
+    private fun formatMarkdown(text: String): SpannableString {
+        val cleanText = text.replace("**", "").replace("#", "")
+        val spannable = SpannableString(cleanText)
+        
+        val boldMatcher = Pattern.compile("Risks Involved|Key Terms|Conclusion|Recommendation|[A-Z][a-z]+ [A-Z][a-z]+")
+        val m = boldMatcher.matcher(cleanText)
+        while (m.find()) {
+            spannable.setSpan(StyleSpan(Typeface.BOLD), m.start(), m.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        
+        return spannable
     }
 
     private fun saveToFirebase(title: String, content: String, level: String, score: Int, explanation: String) {
@@ -220,7 +235,7 @@ class ResultsFragment : Fragment() {
         binding.textRiskScore.text = score.toString()
         binding.riskProgress.progress = score
         binding.textRiskStatus.text = riskLevel
-        binding.textExplanation.text = explanation
+        binding.textExplanation.text = formatMarkdown(explanation)
 
         val color = when {
             score > 60 -> requireContext().getColor(R.color.risk_high)

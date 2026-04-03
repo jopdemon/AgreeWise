@@ -1,5 +1,7 @@
 package com.example.agreewise.ui.scan
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.os.Bundle
 import android.util.Log
 import android.view.GestureDetector
@@ -34,7 +36,7 @@ class ArScanFragment : Fragment() {
     private var lastAnalysisTime = 0L
     private var detectionStartTime = 0L
     private val analysisInterval = 5000L 
-    private val autoNavigateDelay = 8000L // Increased so user can see the floating labels longer
+    private val autoNavigateDelay = 8000L 
     private var isNavigating = false
     
     private val anchorNodeMap = mutableMapOf<Int, AnchorNode>()
@@ -60,7 +62,8 @@ class ArScanFragment : Fragment() {
 
         val gestureDetector = GestureDetector(requireContext(), object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapUp(e: MotionEvent): Boolean {
-                configureArSession()
+                showFocusRing(e.x, e.y)
+                triggerArFocus()
                 return true
             }
         })
@@ -86,6 +89,35 @@ class ArScanFragment : Fragment() {
                 navigateToResults()
             }
         }
+    }
+
+    private fun showFocusRing(x: Float, y: Float) {
+        val ring = binding.focusRing
+        ring.x = x - (ring.width / 2)
+        ring.y = y - (ring.height / 2)
+        ring.visibility = View.VISIBLE
+        ring.alpha = 1f
+        ring.scaleX = 0.5f
+        ring.scaleY = 0.5f
+
+        ring.animate()
+            .scaleX(1.2f)
+            .scaleY(1.2f)
+            .alpha(0f)
+            .setDuration(400)
+            .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    ring.visibility = View.GONE
+                }
+            })
+            .start()
+    }
+
+    private fun triggerArFocus() {
+        val session = arFragment.arSceneView.session ?: return
+        val config = session.config
+        config.focusMode = Config.FocusMode.AUTO
+        session.configure(config)
     }
 
     private fun configureArSession() {
@@ -138,11 +170,10 @@ class ArScanFragment : Fragment() {
         anchorNodeMap.values.forEach { it.setParent(null) }
         anchorNodeMap.clear()
         
-        // Logic for Green/Yellow/Red based on risk score
         val layoutId = when {
-            score > 60 -> R.layout.ar_label_high // RED
-            score > 30 -> R.layout.ar_label_medium // YELLOW
-            else -> R.layout.ar_label_low // GREEN
+            score > 60 -> R.layout.ar_label_high 
+            score > 30 -> R.layout.ar_label_medium 
+            else -> R.layout.ar_label_low 
         }
 
         val labelText = if (risks.isNotEmpty()) risks[0] else "Standard Clause"
@@ -153,8 +184,6 @@ class ArScanFragment : Fragment() {
             .thenAccept { renderable ->
                 val node = com.google.ar.sceneform.Node()
                 node.renderable = renderable
-                
-                // Position directly in front of camera
                 node.localPosition = com.google.ar.sceneform.math.Vector3(0f, 0f, -0.5f)
                 
                 val anchorNode = AnchorNode()
